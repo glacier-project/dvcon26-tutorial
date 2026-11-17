@@ -15,7 +15,7 @@ package TrafficLight {
 
     state def TrafficLightBehavior {
         attribute color : LightColor := LightColor::red;
-        // BROKEN on purpose: the light starts red with a request pending
+        // BUG 1: the light starts red with a button press already pending
         attribute requested : Boolean := true;
 
         // NEW: a button press must never survive into red
@@ -29,10 +29,8 @@ package TrafficLight {
             then showRed;
 
         state showRed {
-            entry action {
-                assign requested := false;     // first clear any button press,
-                assign color := LightColor::red;   // then turn red
-            }
+            // BUG 2: the button press is not cleared when the light turns red
+            entry assign color := LightColor::red;
         }
         state showGreen {
             entry assign color := LightColor::green;

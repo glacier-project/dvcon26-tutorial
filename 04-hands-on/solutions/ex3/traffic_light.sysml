@@ -15,6 +15,7 @@ package TrafficLight {
 
     state def TrafficLightBehavior {
         attribute color : LightColor := LightColor::red;
+        // FIX 1: no button press at the start
         attribute requested : Boolean := false;
 
         // NEW: a button press must never survive into red
@@ -28,9 +29,10 @@ package TrafficLight {
             then showRed;
 
         state showRed {
+            // FIX 2: clear the button press first, then turn red
             entry action {
-                assign requested := false;     // first clear any button press,
-                assign color := LightColor::red;   // then turn red
+                assign requested := false;
+                assign color := LightColor::red;
             }
         }
         state showGreen {
