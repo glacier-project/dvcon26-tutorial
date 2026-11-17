@@ -71,7 +71,9 @@ Each folder's README lists the commands to type in that folder and the
 output you should see. In each folder, `./run.sh` runs the same steps one by
 one.
 
-Words you will meet:
+To run the SysML models of parts 03 and 04, with the quake backend instead of Lingua Franca, see [QUAKE.md](QUAKE.md).
+
+Concepts you will understand after the tutorial:
 
 - **Lingua Franca (LF)**: a language for deterministic programs made of **reactors**.
 - **`lfc`**: the LF compiler.
