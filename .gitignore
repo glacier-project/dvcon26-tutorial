@@ -1,0 +1,12 @@
+# Build outputs
+out/
+bin/
+src-gen/
+include/
+build/
+__pycache__/
+05-silicon/esp32/src/
+
+# Local
+.env
+.venv/

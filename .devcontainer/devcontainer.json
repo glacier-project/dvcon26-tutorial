@@ -1,0 +1,20 @@
+{
+  "name": "DVCon tutorial: Frost, Rosetta, Lingua Franca",
+  "build": { "dockerfile": "Dockerfile" },
+  "secrets": {
+    "SYSIDE_LICENSE_KEY": {
+      "description": "The SysIDE license key you got at the tutorial. sysmlc needs it."
+    }
+  },
+  "customizations": {
+    "codespaces": { "openFiles": ["README.md"] },
+    "vscode": {
+      "extensions": [
+        "lf-lang.vscode-lingua-franca",
+        "sensmetry.syside-editor",
+        "ms-python.python",
+        "ms-vscode.cpptools"
+      ]
+    }
+  }
+}

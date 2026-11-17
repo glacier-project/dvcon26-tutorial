@@ -1,0 +1,29 @@
+// Slide "A Complete LF Program"
+// Two machines and one deterministic delay.
+target Python {
+    fast: true
+}
+
+reactor Machine {
+    input cmd
+    output ack
+
+    reaction(cmd) -> ack {=
+        ack.set(cmd.value)  # echo the command back as the ack
+    =}
+}
+
+main reactor {
+    a = new Machine()
+    b = new Machine()
+
+    a.ack -> b.cmd after 2 sec  # a delay in logical time
+
+    reaction(startup) -> a.cmd {=
+        a.cmd.set(True)
+    =}
+
+    reaction(b.ack) {=
+        print(f"acked at {lf.time.logical_elapsed()} ns")
+    =}
+}

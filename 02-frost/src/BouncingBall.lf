@@ -1,0 +1,82 @@
+// Slides "How to import an FMI into Frost" and "The FrostFmu Reactor + Binding"
+// Frost steps bouncingBall.fmu, an FMI 2.0 co-simulation FMU, in logical time.
+// Its states h and v are bound to nodes of the Machine Data Model.
+target Python {
+    fast: true,
+    timeout: 2 sec
+}
+
+import FrostReactor from <frost/FrostReactor.lf>
+import FrostFmu from <frost/simulation/FrostFmu.lf>
+
+preamble {=
+    from frost import *
+    from simulation_message import SimulationMessageBuilder
+    from operation import Operation
+    DT = 0.01        # one FMU step per sample, in seconds
+    H, V = 0, 2      # value references of h and v in modelDescription.xml
+    def now():
+        return f"[{lf.time.logical_elapsed() / 1e9:5.2f} s]"
+=}
+
+// FrostFmu loads the FMU at startup and frees it at shutdown.
+// Our own SIMULATE handler also returns the FMU's state after each step.
+reactor Ball extends FrostFmu {
+    reaction(startup) {=
+        self.simulation_handler.register_handler(Operation.get_enum().SIMULATE, self.step)
+    =}
+
+    method step(args) {=
+        dt = args[0]
+        self.fmu.doStep(currentCommunicationPoint=self.fmu_time, communicationStepSize=dt)
+        self.fmu_time += dt
+        h, v = self.fmu.getReal([H, V])
+        return {"time": self.fmu_time, "h": h, "v": v}
+    =}
+}
+
+// The cell is a FrostReactor. Its data model is resources/data_model/ball_cell.yml.
+// Each sample steps the FMU and writes h and v to the data model.
+reactor BallCell extends FrostReactor {
+    state height
+    state velocity
+    state bounces
+    timer sample(10 ms, 10 ms)   // the step at t covers [t - DT, t]
+
+    fmu = new Ball(name = "ball_fmu", file_path = "resources/bouncingBall.fmu")
+
+    reaction(startup) {=
+        self.height = self.data_model.get_node("ball/height")
+        self.velocity = self.data_model.get_node("ball/velocity")
+        self.bounces = self.data_model.get_node("ball/bounces")
+    =}
+
+    reaction(sample) -> fmu.request {=
+        msg = SimulationMessageBuilder()\
+            .with_sender(self.name)\
+            .with_target("ball_fmu")\
+            .with_operation(Operation.get_enum().SIMULATE)\
+            .with_args([DT])\
+            .build()
+        fmu.request.set(msg)
+    =}
+
+    reaction(fmu.result) {=
+        msg = fmu.result.value
+        if msg is None or msg.operation != Operation.get_enum().RESPONSE:
+            return
+        state = msg.args[0]
+        if not isinstance(state, dict):
+            return                                 # a reply with no FMU state
+        was_falling = self.velocity.value < 0
+        self.height.value = state["h"]
+        self.velocity.value = state["v"]
+        if was_falling and state["v"] > 0:
+            self.bounces.value += 1
+            print(f"{now()} bounce #{int(self.bounces.value)}  (FMU time {state['time']:.2f} s)")
+    =}
+}
+
+main reactor {
+    cell = new BallCell(name = "ball_cell")
+}

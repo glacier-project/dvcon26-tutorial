@@ -1,0 +1,11 @@
+# Example configuration for the milling workcell. Nesting mirrors
+# qualified names (package -> state def -> attribute). Build with:
+#
+#   sysmlc rosetta build showcase/milling-workcell \
+#     -e MillingWorkcell::MillingWorkcellBehavior \
+#     --values values.yaml
+MillingWorkcell:
+  MillingWorkcellBehavior:
+    batchSize: 2
+    toolWearLimit: 30.0
+    retryDelay: 1 [s]

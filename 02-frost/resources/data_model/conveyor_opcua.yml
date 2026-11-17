@@ -1,0 +1,60 @@
+# Slide "Connector Binding"
+# conveyor.yml, bound to a real conveyor over OPC UA.
+# Not run in the tutorial. Only the lines marked NEW differ.
+name: "conveyor"
+description: "ICE Lab Conveyor"
+connectors:                                # NEW: the connectors are part of the data model
+  - !!OpcuaConnector
+    name: "opcua"
+    ip_env_var: "CONVEYOR_IP"              # e.g. export CONVEYOR_IP=192.168.1.10
+    port_env_var: "CONVEYOR_PORT"          # e.g. export CONVEYOR_PORT=4840
+root:
+  !!FolderNode
+  name: "conveyor"
+  connector_name: "opcua"                  # NEW: the whole subtree is served by "opcua"
+  children:
+    - !!BooleanVariableNode
+      name: "arrived"
+      initial_value: false
+    - !!NumericalVariableNode
+      name: "position"
+      measure_unit: "LengthUnits.Meter"
+      initial_value: 0.0
+    - !!AsyncMethodNode
+      name: "sendPalletTo"
+      connector_name: "opcua"              # NEW: this method is served by "opcua"
+      remote_resource_spec:                # NEW: the matching node on the OPC UA server
+        !!OpcuaRemoteResourceSpec
+        node_id: "sendPalletTo"
+        namespace: 7                       # node id ns=7;s=sendPalletTo
+      parameters:
+        - !!NumericalVariableNode
+          name: "destination"
+          measure_unit: "LengthUnits.Meter"
+      returns:
+        - !!BooleanVariableNode
+          name: "ok"
+    # Unchanged. A CompositeMethodNode lives only in the data model
+    # and is never bound to a connector.
+    # The same graph drives the twin or the real conveyor.
+    - !!CompositeMethodNode
+      name: "moveAndCheck"
+      parameters:
+        - !!NumericalVariableNode
+          name: "destination"
+          measure_unit: "LengthUnits.Meter"
+      returns:
+        - !!BooleanVariableNode
+          name: "result"
+      cfg:
+        - !!CallMethodNode
+          method: "/conveyor/sendPalletTo"
+          kwargs:
+            destination: "${destination}"
+        - !!WaitConditionNode
+          variable: "/conveyor/arrived"
+          operator: "=="
+          rhs: true
+        - !!ReadVariableNode
+          variable: "/conveyor/arrived"
+          store_as: "result"

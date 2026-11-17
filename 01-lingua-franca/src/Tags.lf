@@ -1,0 +1,33 @@
+// Slide "Logical vs. Physical Time"
+// Every event has a tag, made of a timestamp and a microstep.
+// A zero-delay action moves only the microstep.
+target Python {
+    fast: true
+}
+
+preamble {=
+    def tag():   # time since start in ns, and microstep
+        return f"tag=({lf.time.logical_elapsed()}, {lf.tag().microstep})"
+=}
+
+main reactor {
+    timer t(2 sec)
+    logical action again
+    state hops = 0
+
+    reaction(startup) {=
+        print(f"{tag()} startup")
+    =}
+
+    reaction(t) -> again {=
+        print(f"{tag()} timer t fires")
+        again.schedule(0)  # same timestamp, next microstep
+    =}
+
+    reaction(again) -> again {=
+        self.hops += 1
+        print(f"{tag()} zero-delay action #{self.hops}")
+        if self.hops < 2:
+            again.schedule(0)
+    =}
+}

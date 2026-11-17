@@ -1,0 +1,40 @@
+// The traffic light with the board's BOOT button (GPIO 9) as the pedestrian
+// button. Press it while the light is green and it turns yellow at once.
+import TrafficLightBehavior from "src/TrafficLightBehaviorMain.ulf"
+
+preamble {=
+  #include <stdio.h>
+  #include "driver/gpio.h"
+=}
+
+// Reads the button every 20 ms and sends one press each time it goes down.
+reactor BootButton {
+  output pressed: bool
+  timer poll(0, 20 msec)
+  state was_down: bool = {= false =}
+
+  reaction(startup) {=
+    gpio_config_t cfg = {
+      .pin_bit_mask = 1ULL << GPIO_NUM_9,
+      .mode = GPIO_MODE_INPUT,
+      .pull_up_en = GPIO_PULLUP_ENABLE,
+    };
+    gpio_config(&cfg);
+  =}
+
+  reaction(poll) -> pressed {=
+    bool down = gpio_get_level(GPIO_NUM_9) == 0;
+    if (down && !self->was_down) {
+      printf("pedestrian button pressed\n");
+      lf_set(pressed, true);
+    }
+    self->was_down = down;
+  =}
+}
+
+@platform("esp-idf")
+main reactor {
+  light = new TrafficLightBehavior()
+  button = new BootButton()
+  button.pressed -> light.PedestrianRequest
+}

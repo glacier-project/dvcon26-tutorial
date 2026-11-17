@@ -1,0 +1,8 @@
+# Attribute overrides for `sysmlc rosetta build --values values.yaml`.
+# The nesting follows the qualified names, package then state def then attribute.
+# Each value is type-checked against its SysML attribute.
+Thermostat:
+  ThermostatBehavior:
+    setpoint: 22.0       # 21.0 in the model
+    hysteresis: 1.0      # 0.5 in the model
+    temperature: 25.5    # 18.0 in the model

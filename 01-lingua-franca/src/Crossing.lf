@@ -1,0 +1,77 @@
+// Slide "Modal Reactors"
+// A traffic light as a modal reactor.
+// Rosetta generates this shape from a SysML state machine.
+target Python {
+    fast: true,
+    timeout: 20 sec
+}
+
+preamble {=
+    def now():
+        return f"[{lf.time.logical_elapsed() / 1e9:5.2f} s]"
+=}
+
+reactor TrafficLight {
+    input p_request
+    output current_state
+    output walk_on
+
+    initial mode showRed {
+        timer t_red(4 sec)
+        reaction(reset, startup) -> current_state {=
+            current_state.set("showRed")
+        =}
+        reaction(t_red) -> reset(showGreen) {=
+            showGreen.set()
+        =}
+    }
+
+    mode showGreen {
+        timer t_green(6 sec)
+        reaction(reset) -> current_state {=
+            current_state.set("showGreen")
+        =}
+        reaction(p_request) -> reset(walkRequest) {=
+            walkRequest.set()
+        =}
+        reaction(t_green) -> reset(showYellow) {=
+            showYellow.set()
+        =}
+    }
+
+    mode walkRequest {
+        reaction(reset) -> current_state, walk_on, reset(showYellow) {=
+            current_state.set("walkRequest")
+            walk_on.set(True)
+            showYellow.set()
+        =}
+    }
+
+    mode showYellow {
+        timer t_yellow(2 sec)
+        reaction(reset) -> current_state {=
+            current_state.set("showYellow")
+        =}
+        reaction(t_yellow) -> reset(showRed) {=
+            showRed.set()
+        =}
+    }
+}
+
+main reactor {
+    light = new TrafficLight()
+    timer pedestrian(5 sec)   // a pedestrian presses the button at 5 s
+
+    reaction(pedestrian) -> light.p_request {=
+        print(f"{now()} pedestrian presses the button")
+        light.p_request.set(True)
+    =}
+
+    reaction(light.current_state) {=
+        print(f"{now()} light -> {light.current_state.value}")
+    =}
+
+    reaction(light.walk_on) {=
+        print(f"{now()} WALK")
+    =}
+}

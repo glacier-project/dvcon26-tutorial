@@ -1,0 +1,33 @@
+# Frost configuration for the four programs in src/.
+# Frost reads resources/frost_config.yml from the folder you run in.
+# There is one entry per Frost reactor, by name.
+# Add `logging_level: INFO` to an entry to see its messages.
+time_precision: NSECS
+logging_level: WARNING
+reactors:
+  frost_link:
+    parameters: {data_model_path: resources/data_model/link.yml}
+    reactors: {message_filter: {}}
+  # ConveyorCfg.lf
+  conveyor:
+    parameters: {data_model_path: resources/data_model/conveyor.yml}
+    reactors: {message_filter: {}}
+  conveyor_client:
+    parameters: {data_model_path: resources/data_model/client.yml, target_node: conveyor}
+    reactors: {message_filter: {}}
+  # QualityCheck.lf
+  control_quality:
+    parameters: {data_model_path: resources/data_model/control_quality.yml}
+    reactors: {message_filter: {}}
+  qc_client:
+    parameters: {data_model_path: resources/data_model/client.yml, target_node: control_quality}
+    reactors: {message_filter: {}}
+  # BouncingBall.lf
+  ball_cell:
+    parameters: {data_model_path: resources/data_model/ball_cell.yml}
+    reactors: {message_filter: {}}
+  ball_fmu: {}
+  # CoSimulation.lf
+  orchestrator: {}
+  ball_fine: {}
+  ball_coarse: {}

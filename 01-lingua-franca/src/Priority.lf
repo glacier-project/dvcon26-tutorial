@@ -1,0 +1,44 @@
+// Slide "Deterministic Concurrency"
+// Reactions at the same tag are logically simultaneous.
+// When they touch the same state, the order of declaration decides.
+target Python {
+    fast: true,
+    timeout: 1 sec
+}
+
+reactor Source(value = 0) {
+    output out
+    timer t(0, 100 ms)
+
+    reaction(t) -> out {=
+        out.set(self.value)
+    =}
+}
+
+reactor Sink {
+    input a
+    input b
+    state x = 1
+
+    // Both reactions fire at every tag and change x.
+    // The one declared first runs first, so +1 always comes before *2.
+    reaction(a) {=
+        self.x = self.x + a.value
+    =}
+
+    reaction(b) {=
+        self.x = self.x * b.value
+    =}
+
+    reaction(shutdown) {=
+        print(f"final x = {self.x}")   # the other order would give a different x
+    =}
+}
+
+main reactor {
+    s1 = new Source(value = 1)
+    s2 = new Source(value = 2)
+    sink = new Sink()
+    s1.out -> sink.a
+    s2.out -> sink.b
+}

@@ -1,0 +1,18 @@
+# The data model that the FMU's states are bound to.
+name: "ball_cell"
+root:
+  !!FolderNode
+  name: "ball"
+  children:
+    - !!NumericalVariableNode
+      name: "height"
+      measure_unit: "NoneMeasureUnits.NONE"   # metres
+      initial_value: 1.0
+    - !!NumericalVariableNode
+      name: "velocity"
+      measure_unit: "NoneMeasureUnits.NONE"   # m/s
+      initial_value: 0.0
+    - !!NumericalVariableNode
+      name: "bounces"
+      measure_unit: "NoneMeasureUnits.NONE"
+      initial_value: 0

@@ -1,0 +1,7 @@
+// Runs the traffic light that Rosetta generated in src/ as ESP-IDF firmware.
+import TrafficLightBehavior from "src/TrafficLightBehaviorMain.ulf"
+
+@platform("esp-idf")
+main reactor {
+  light = new TrafficLightBehavior()
+}

@@ -1,0 +1,29 @@
+# Slide "Frost Example"
+# The Machine Data Model of the quality-control machine.
+name: "control_quality"
+description: "A simple quality control machine"
+root:
+  !!FolderNode
+  name: "control_quality"
+  children:
+    - !!FolderNode
+      name: "stats"
+      children:
+        - !!NumericalVariableNode
+          name: "#checks"
+          measure_unit: "NoneMeasureUnits.NONE"
+          initial_value: 0
+        - !!NumericalVariableNode
+          name: "failures"
+          measure_unit: "NoneMeasureUnits.NONE"
+          initial_value: 0
+        - !!MethodNode
+          name: "check_quality"
+          parameters:
+            - !!StringVariableNode
+              name: "product_info"
+              initial_value: ""
+          returns:
+            - !!BooleanVariableNode
+              name: "result"
+              initial_value: false

@@ -1,0 +1,74 @@
+// Slide "Modal Reactors: Modes, Reset vs. History"
+// Both reactors tick every second. They pause at 2.5 s and resume at 4 s.
+// reset(Running) restarts the mode, so its timer starts again from 0.
+// history(Running) resumes the mode where it left off, with 0.5 s to go.
+target Python {
+    fast: true,
+    timeout: 6 sec
+}
+
+preamble {=
+    def now():
+        return f"[{lf.time.logical_elapsed() / 1e9:5.2f} s]"
+=}
+
+reactor ResetTicker {
+    input pause
+    input resume
+
+    initial mode Running {
+        timer t(0, 1 sec)
+        reaction(t) {=
+            print(f"{now()}   reset: tick")
+        =}
+        reaction(pause) -> reset(Paused) {=
+            Paused.set()
+        =}
+    }
+
+    mode Paused {
+        reaction(resume) -> reset(Running) {=
+            Running.set()          # restart Running, the timer starts over
+        =}
+    }
+}
+
+reactor HistoryTicker {
+    input pause
+    input resume
+
+    initial mode Running {
+        timer t(0, 1 sec)
+        reaction(t) {=
+            print(f"{now()} history: tick")
+        =}
+        reaction(pause) -> reset(Paused) {=
+            Paused.set()
+        =}
+    }
+
+    mode Paused {
+        reaction(resume) -> history(Running) {=
+            Running.set()          # resume Running where it left off
+        =}
+    }
+}
+
+main reactor {
+    r = new ResetTicker()
+    h = new HistoryTicker()
+    timer pause_at(2500 ms)
+    timer resume_at(4 sec)
+
+    reaction(pause_at) -> r.pause, h.pause {=
+        print(f"{now()} -- pause --")
+        r.pause.set(True)
+        h.pause.set(True)
+    =}
+
+    reaction(resume_at) -> r.resume, h.resume {=
+        print(f"{now()} -- resume --")
+        r.resume.set(True)
+        h.resume.set(True)
+    =}
+}

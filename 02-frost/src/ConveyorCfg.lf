@@ -1,0 +1,102 @@
+// Slides "The Machine Data Model", "Reading the Conveyor Model"
+// and "Control-flow Graphs Execution"
+target Python {
+    fast: true,
+    timeout: 1 min
+}
+
+import FrostLink from <frost/FrostLink.lf>
+import FrostReactor from <frost/FrostReactor.lf>
+
+preamble {=
+    from frost import *
+    SPEED = 0.5         # m/s
+    TICK = 0.1          # s, the period of the motor timer
+    DESTINATION = 3.0   # m
+    def now():
+        return f"[{lf.time.logical_elapsed() / 1e9:5.2f} s]"
+=}
+
+// The behaviour behind resources/data_model/conveyor.yml.
+// moveAndCheck needs no code here. It is a control-flow graph in the data model.
+reactor Conveyor extends FrostReactor {
+    state position
+    state arrived
+    state goal = {= None =}
+    timer motor(0, 100 ms)
+
+    reaction(startup) {=
+        self.position = self.data_model.get_node("conveyor/position")
+        self.arrived = self.data_model.get_node("conveyor/arrived")
+        self.data_model.get_node("conveyor/sendPalletTo").callback = self.send_pallet_to
+    =}
+
+    method send_pallet_to(destination) {=
+        print(f"{now()} conveyor: sendPalletTo({destination})")
+        self.goal = float(destination)
+        self.arrived.value = False
+        return True
+    =}
+
+    reaction(motor) {=
+        if self.goal is None:
+            return
+        step = SPEED * TICK
+        if abs(self.goal - self.position.value) <= step + 1e-9:   # 1e-9 for float rounding
+            self.position.value = self.goal
+            self.goal = None
+            self.arrived.value = True
+            print(f"{now()} conveyor: arrived at {self.position.value} m")
+        elif self.goal > self.position.value:
+            self.position.value += step
+        else:
+            self.position.value -= step
+    =}
+}
+
+reactor Client extends FrostReactor {
+    state target_node = ""          // set from frost_config.yml
+    state correlation_id
+    state started_at = 0
+    logical action go
+
+    reaction(startup) -> go {=
+        go.schedule(0)
+    =}
+
+    reaction(go) -> go, channel_out {=
+        if not self.connected:
+            go.schedule(MSEC(100))
+            return
+        msg = self.message_builder.build_invoke_method_message(
+            target=self.target_node,
+            node="conveyor/moveAndCheck",
+            args=[],
+            kwargs={"destination": DESTINATION},
+        )
+        self.correlation_id = msg.correlation_id
+        self.started_at = lf.time.logical_elapsed()
+        print(f"{now()} client: moveAndCheck(destination={DESTINATION})")
+        self._set_channel_out_port(msg, channel_out)
+    =}
+
+    reaction(response_messages) {=
+        for bank_index, message in response_messages.value:
+            if message.correlation_id != self.correlation_id:
+                continue
+            if message.header.msg_name != MethodMsgName.COMPLETED:
+                continue
+            took = (lf.time.logical_elapsed() - self.started_at) / 1e9
+            print(f"{now()} client: moveAndCheck -> {message.payload.ret['result']} (took {took:.1f} s)")
+            lf.request_stop()
+    =}
+}
+
+main reactor {
+    conveyor = new Conveyor(name = "conveyor", update_interval = 100 ms)  // how often data-model changes are sent
+    client = new Client(name = "conveyor_client")
+    link = new FrostLink(name = "frost_link", width = 2)
+
+    conveyor.channel_out, client.channel_out -> link.channel_in
+    link.channel_out -> conveyor.channel_in, client.channel_in after 0
+}

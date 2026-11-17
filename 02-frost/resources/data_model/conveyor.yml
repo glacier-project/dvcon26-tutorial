@@ -1,0 +1,48 @@
+# Slide "The Machine Data Model"
+# A tree of typed nodes with a folder at the root.
+name: "conveyor"
+description: "ICE Lab Conveyor"
+root:
+  !!FolderNode
+  name: "conveyor"
+  children:
+    # VariableNodes hold live state. Clients can read them and subscribe to them.
+    - !!BooleanVariableNode
+      name: "arrived"
+      initial_value: false
+    - !!NumericalVariableNode
+      name: "position"
+      measure_unit: "LengthUnits.Meter"
+      initial_value: 0.0
+    # An AsyncMethodNode returns at once. Its effect takes time.
+    - !!AsyncMethodNode
+      name: "sendPalletTo"
+      parameters:
+        - !!NumericalVariableNode
+          name: "destination"
+          measure_unit: "LengthUnits.Meter"
+      returns:
+        - !!BooleanVariableNode
+          name: "ok"
+    # A CompositeMethodNode is a control-flow graph over data-model nodes.
+    - !!CompositeMethodNode
+      name: "moveAndCheck"
+      parameters:
+        - !!NumericalVariableNode
+          name: "destination"
+          measure_unit: "LengthUnits.Meter"
+      returns:
+        - !!BooleanVariableNode
+          name: "result"
+      cfg:
+        - !!CallMethodNode            # call a method
+          method: "/conveyor/sendPalletTo"
+          kwargs:
+            destination: "${destination}"
+        - !!WaitConditionNode         # wait for a condition
+          variable: "/conveyor/arrived"
+          operator: "=="
+          rhs: true
+        - !!ReadVariableNode          # read into a return value
+          variable: "/conveyor/arrived"
+          store_as: "result"

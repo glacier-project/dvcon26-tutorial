@@ -1,0 +1,83 @@
+// Slide "Orchestrating multiple interacting FMUs"
+// Two FMUs want different step sizes, 10 ms and 25 ms.
+// The Orchestrator collects each model's proposal and takes the smallest.
+// It sends that step to all models and waits for every reply
+// before logical time moves on.
+target Python {
+    fast: true,
+    timeout: 1 sec
+}
+
+import FrostFmu from <frost/simulation/FrostFmu.lf>
+import Orchestrator from <frost/simulation/Orchestrator.lf>
+
+preamble {=
+    from frost import *
+    from simulation_message import SimulationMessageBuilder
+    from operation import Operation
+=}
+
+// An FMU that steps by the commanded dt and proposes its own next step.
+reactor Ball(preferred_ms = 10) extends FrostFmu {
+    reaction(startup) {=
+        self.simulation_handler.register_handler(Operation.get_enum().SIMULATE, self.step)
+    =}
+
+    method step(args) {=
+        dt = args[0]
+        if dt > 0:
+            self.fmu.doStep(currentCommunicationPoint=self.fmu_time, communicationStepSize=dt)
+            self.fmu_time += dt
+        return {"name": self.name, "time": round(self.fmu_time, 9), "next_ms": self.preferred_ms}
+    =}
+}
+
+reactor CoSimMaster(print_every = 25) extends Orchestrator {
+    state last_command = 0
+    state times = {= {} =}
+    state steps = 0
+    state in_sync = True
+
+    reaction(startup) {=
+        # Our own RESPONSE handler, because the proposals arrive as dicts.
+        self.simulation_handler.register_handler(Operation.get_enum().RESPONSE, self.on_response)
+    =}
+
+    method on_response(args) {=
+        reply = args[0]
+        self.times[reply["name"]] = reply["time"]
+        self.stepper.add_step(reply["next_ms"])
+        return 0
+    =}
+
+    // Send the common step to every model.
+    reaction(command) -> models_out {=
+        now = lf.time.logical_elapsed()
+        dt = (now - self.last_command) / 1e9
+        self.last_command = now
+        self.in_sync &= len(set(self.times.values())) <= 1    # all models at the same time?
+        if self.steps < 4 or self.steps % self.print_every == 0:
+            print(f"[{now / 1e9:5.2f} s] common step = {dt * 1000:.0f} ms, model times = {self.times}")
+        self.steps += 1
+        for i, port in enumerate(models_out):
+            port.set(SimulationMessageBuilder()
+                     .with_sender(self.name)
+                     .with_target(self.models[i])
+                     .with_operation(Operation.get_enum().SIMULATE)
+                     .with_args([dt])
+                     .build())
+    =}
+
+    reaction(shutdown) {=
+        print(f"{self.steps} co-simulation steps; in sync: {'yes' if self.in_sync else 'NO'}")
+    =}
+}
+
+main reactor {
+    master = new CoSimMaster(name = "orchestrator", width = 2)
+    fine = new Ball(name = "ball_fine", preferred_ms = 10, file_path = "resources/bouncingBall.fmu")
+    coarse = new Ball(name = "ball_coarse", preferred_ms = 25, file_path = "resources/bouncingBall.fmu")
+
+    master.models_out -> fine.request, coarse.request after 0
+    fine.result, coarse.result -> master.models_in after 0
+}

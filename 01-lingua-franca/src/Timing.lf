@@ -1,0 +1,48 @@
+// Slide "Timers, logical actions, deadlines"
+// No fast mode here. A deadline compares logical time with wall-clock time,
+// so the deadline lines can differ from one machine to another.
+target Python {
+    timeout: 450 ms
+}
+
+preamble {=
+    import time
+    def now():
+        return f"[{lf.time.logical_elapsed() / 1e9:5.2f} s]"
+=}
+
+reactor Producer {
+    output out
+    timer t(0, 200 ms)
+    logical action later
+
+    reaction(t) -> later {=
+        print(f"{now()} timer t fires")
+        later.schedule(MSEC(50))  # one-off event 50 ms later
+    =}
+
+    reaction(later) -> out {=
+        print(f"{now()} logical action fires (50 ms after t); working 30 ms...")
+        time.sleep(0.03)          # takes 30 ms of wall-clock time
+        out.set(lf.time.logical_elapsed() / 1e9)
+    =}
+}
+
+reactor Consumer(name = "") {
+    input inp
+
+    reaction(inp) {=
+        print(f"{now()} {self.name}: on time (value sent at {inp.value:.2f} s)")
+    =} deadline(10 ms) {=
+        print(f"{now()} {self.name}: deadline missed (started > 10 ms late in wall-clock time)")
+    =}
+}
+
+main reactor {
+    p = new Producer()
+    direct = new Consumer(name = "direct")
+    delayed = new Consumer(name = "after 100 ms")
+
+    p.out -> direct.inp                  // same tag, so it sees the 30 ms of work
+    p.out -> delayed.inp after 100 ms    // the 100 ms delay absorbs it
+}

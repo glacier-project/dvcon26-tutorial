@@ -1,0 +1,3 @@
+# A client has no interface of its own, so its data model is empty.
+name: "client"
+root: !!FolderNode {name: "client"}

@@ -1,0 +1,14 @@
+# Builds the Codespace environment and runs every command of the READMEs.
+name: test
+on: [push, workflow_dispatch]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: devcontainers/ci@v0.3
+        env:
+          SYSIDE_LICENSE_KEY: ${{ secrets.SYSIDE_LICENSE_KEY }}
+        with:
+          env: SYSIDE_LICENSE_KEY
+          runCmd: bash tests/run_all.sh

@@ -1,0 +1,13 @@
+# The FrostLink routes messages between components.
+# This is its own data model, where it keeps the registered components.
+name: "frost_link"
+root:
+  !!FolderNode
+  name: "FrostLink"
+  children:
+    - !!NumericalVariableNode
+      name: "#Nodes"
+      measure_unit: "NoneMeasureUnits.NONE"
+      initial_value: 0
+    - !!FolderNode
+      name: "NodeInfo"

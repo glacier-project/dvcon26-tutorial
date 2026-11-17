@@ -1,0 +1,102 @@
+// Slide "Frost Example"
+// A ControlQuality machine and a Client, connected by a FrostLink.
+target Python {
+    fast: true,
+    timeout: 1 min
+}
+
+import FrostLink from <frost/FrostLink.lf>
+import FrostReactor from <frost/FrostReactor.lf>
+
+preamble {=
+    from frost import *
+    def now():
+        return f"[{lf.time.logical_elapsed() / 1e9:5.2f} s]"
+=}
+
+// The machine. Its interface is the data model in
+// resources/data_model/control_quality.yml. Here we only add the behaviour.
+reactor ControlQuality extends FrostReactor {
+    state total_checks
+    state failures
+
+    reaction(startup) {=
+        self.total_checks = self.data_model.get_node("control_quality/stats/#checks")
+        self.failures = self.data_model.get_node("control_quality/stats/failures")
+        check_quality = self.data_model.get_node("control_quality/stats/check_quality")
+        check_quality.callback = self.check_quality
+    =}
+
+    method check_quality(product_info) {=
+        self.total_checks.value += 1
+        if product_info != "good":
+            self.failures.value += 1
+            return False
+        return True
+    =}
+
+    // FrostReactor queues the calls to plain, synchronous MethodNodes.
+    // Run them and send back the COMPLETED response.
+    reaction(new_method_request) -> channel_out {=
+        for bank_index, message in new_method_request.value:
+            response = self.protocol_mng.handle_message(message)
+            self._set_channel_out_port(response, channel_out)
+    =}
+
+    reaction(shutdown) {=
+        print(f"checks={int(self.total_checks.value)} failures={int(self.failures.value)}")
+    =}
+}
+
+// A user application. It calls check_quality on three products, one at a time.
+reactor Client extends FrostReactor {
+    state target_node = ""          // set from frost_config.yml
+    state products = ["good", "bad", "good"]
+    state results = []
+    state correlation_id
+    logical action next
+
+    reaction(startup) -> next {=
+        next.schedule(0)
+    =}
+
+    reaction(next) -> next, channel_out {=
+        if not self.connected:          # wait until the FrostLink has registered us
+            next.schedule(MSEC(100))
+            return
+        product = self.products[len(self.results)]
+        msg = self.message_builder.build_invoke_method_message(
+            target=self.target_node,
+            node="control_quality/stats/check_quality",
+            args=[],
+            kwargs={"product_info": product},
+        )
+        self.correlation_id = msg.correlation_id
+        print(f"{now()} client -> check_quality({product!r})")
+        self._set_channel_out_port(msg, channel_out)
+    =}
+
+    reaction(response_messages) -> next {=
+        for bank_index, message in response_messages.value:
+            if message.correlation_id != self.correlation_id:
+                continue
+            if message.header.msg_name != MethodMsgName.COMPLETED:
+                continue
+            ok = message.payload.ret["result"]
+            print(f"{now()} client <- {ok}")
+            self.results.append(ok)
+            if len(self.results) < len(self.products):
+                next.schedule(0)
+            else:
+                lf.request_stop()
+    =}
+}
+
+main reactor {
+    machine = new ControlQuality(name = "control_quality")
+    client = new Client(name = "qc_client")
+    link = new FrostLink(name = "frost_link", width = 2)
+
+    machine.channel_out, client.channel_out -> link.channel_in
+    link.channel_out -> machine.channel_in, client.channel_in after 0
+}

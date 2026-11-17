@@ -1,0 +1,30 @@
+// Slide "What is a Reactor?"
+// A reactor with a timer, a state, an output port and a reaction.
+target Python {
+    fast: true,      // do not wait for the wall clock
+    timeout: 3 sec
+}
+
+preamble {=
+    def now():
+        return f"[{lf.time.logical_elapsed() / 1e9:5.2f} s]"
+=}
+
+reactor Blinker(period = 500 ms) {
+    timer t(0, period)
+    output led
+    state on = False
+
+    reaction(t) -> led {=
+        self.on = not self.on
+        led.set(self.on)
+    =}
+}
+
+main reactor {
+    b = new Blinker()
+
+    reaction(b.led) {=
+        print(f"{now()} led = {b.led.value}")
+    =}
+}
