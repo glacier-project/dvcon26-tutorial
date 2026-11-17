@@ -2,7 +2,7 @@
 
 **Building Deterministic Digital Twins of Cyber-Physical Systems with Frost and Lingua Franca**
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/glacier-project/dvcon26-tutorial)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sbgaia/dvcon26-tutorial)
 
 The tutorial's examples, ready to run. The slides are in
 [slide/dvconeu26-tutorial-frost.pdf](slide/dvconeu26-tutorial-frost.pdf).
